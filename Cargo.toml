@@ -1,9 +1,16 @@
 [package]
-name = "Ruft"
+name = "ruft"
 version = "0.1.0"
-authors = ["S1T <ghzpotato@gmail.com>"]
+authors = ["S1T"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tonic = "0.1.0"
+prost = "0.6"
+futures = "0.3"
+tokio = { version = "0.2", features = ["macros"] }
+
+[build-dependencies]
+tonic-build = "0.1.0"
