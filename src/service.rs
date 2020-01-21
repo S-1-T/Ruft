@@ -1,5 +1,5 @@
 use tonic::{
-    transport::{Channel, Server},
+    transport::Server,
     {Request, Response, Status},
 };
 
