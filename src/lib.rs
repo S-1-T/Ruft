@@ -1,6 +1,6 @@
-mod cluster;
 mod node;
-mod service;
 
-pub use cluster::ClusterInfo;
+#[macro_use]
+extern crate crossbeam_channel;
+
 pub use node::Node;
