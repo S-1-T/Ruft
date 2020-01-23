@@ -1,76 +1,97 @@
-use crate::service;
-use crate::ClusterInfo;
+use crossbeam_channel::{unbounded, Receiver, Sender};
+use std::net::UdpSocket;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::thread;
 
-// Role of a Node
-enum Role {
-    Follower,
-    Candidate,
-    Leader,
+struct ClusterInfo {
+    node_number: u32,
+    majority_number: u32,
+    heartbeat_interval: u32,
+    node_list: Vec<String>, // Vec(host, port)
 }
 
-// Log content
-struct Log {
-    // For each log, there is a state such as "x->1", which
-    // sets the value_id x to value_content 1
-    value_id: u32,
-    value_content: i32,
-    rec_term: u32,
+impl ClusterInfo {
+    fn new(node_number: u32, heartbeat_interval: u32, node_list: Vec<String>) -> ClusterInfo {
+        let majority_number = (node_number - 1) / 2 + 1;
+
+        ClusterInfo {
+            node_number,
+            majority_number,
+            heartbeat_interval,
+            node_list,
+        }
+    }
 }
 
-// Node represents a single server
 pub struct Node {
-    id: u32,
-    current_term: u32,
-    voted_for: u32,
-    logs: Vec<Log>,
-    commit_index: u32,
-    last_applied: u32,
-    next_index: Vec<u32>,
-    match_index: Vec<u32>,
-    role: Role,
+    host: String,
     port: u16,
+    rpc_notifier: Option<Sender<()>>,
+    rpc_receiver: Option<Receiver<()>>,
     cluster_info: ClusterInfo,
 }
 
 impl Node {
-    pub fn new(id: u32, cluster_info: ClusterInfo) -> Node {
+    pub fn new(
+        host: String,
+        port: u16,
+        node_number: u32,
+        heartbeat_interval: u32,
+        node_list: Vec<String>,
+    ) -> Node {
+        let (tx, rx) = unbounded();
         Node {
-            id,
-            current_term: 0,
-            voted_for: 0,
-            logs: Vec::<Log>::new(),
-            commit_index: 0,
-            last_applied: 0,
-            next_index: Vec::<u32>::new(),
-            match_index: Vec::<u32>::new(),
-            role: Role::Follower,
-            port: cluster_info.get_node_port(id),
-            cluster_info,
+            host,
+            port,
+            rpc_notifier: Some(tx),
+            rpc_receiver: Some(rx),
+            cluster_info: ClusterInfo::new(node_number, heartbeat_interval, node_list),
         }
     }
 
-    fn start_rpc_server(port: u16) {
-        service::init_server(port).unwrap();
+    fn start_rpc_listener(socket_addr: SocketAddr, rpc_notifier: Sender<()>) {
+        let socket = UdpSocket::bind(socket_addr).unwrap();
+        loop {
+            let mut buffer = [0; 1024];
+            let (amt, _) = socket.recv_from(&mut buffer).unwrap();
+            print!(
+                "Receive Raw Data: {}",
+                String::from_utf8_lossy(&buffer[..amt])
+            );
+            if let Ok(msg_content) = String::from_utf8(buffer[..amt].to_vec()) {
+                // Handle the raw RPC request from socket buffer
+                rpc_notifier.send(()).unwrap();
+            }
+        }
     }
 
-    pub fn run(self) {
-        let server_port = self.port;
-        let rpc_server_thread = thread::spawn(move || {
-            println!("Running RPC Server on 127.0.0.1:{}", server_port);
-            Node::start_rpc_server(server_port);
-        });
-
-        rpc_server_thread.join().unwrap();
+    fn start_raft_server(rpc_receiver: Receiver<()>) {
+        loop {
+            select! {
+                recv(rpc_receiver) -> msg => {
+                    // Handle the RPC request
+                    println!("Receive RPC request: {:?}", msg);
+                }
+            }
+        }
     }
 
-    fn request_a_vote(self, node_id: u32) {
-        let port = self.cluster_info.get_node_port(node_id);
-        println!("Calling RPC Server on 127.0.0.1:{}", port);
-        service::request_a_vote(port).unwrap();
-    }
-
-    fn append_entries(self) {
-        // To-do: Implement append_entries method
+    pub fn run(&mut self) {
+        if let Some(tx) = self.rpc_notifier.take() {
+            if let Some(socket_addr) = format!("{}:{}", self.host, self.port)
+                .to_socket_addrs()
+                .unwrap()
+                .next()
+            {
+                println!("Starting RPC Server on {}:{}", self.host, self.port);
+                thread::spawn(move || {
+                    Node::start_rpc_listener(socket_addr, tx);
+                });
+            }
+        }
+        if let Some(tr) = self.rpc_receiver.take() {
+            println!("Starting Raft Algorithm");
+            Node::start_raft_server(tr);
+        }
     }
 }
