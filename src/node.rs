@@ -1,7 +1,9 @@
 use crossbeam_channel::{select, unbounded, Receiver, Sender};
 use std::net::UdpSocket;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::thread;
+use std::thread::{self, sleep};
+use std::time::Duration;
+use rand::Rng;
 
 use crate::rpc::RPCMessage;
 
@@ -30,8 +32,8 @@ struct NodeInfo {
     port: u16,
     rpc_notifier: Option<Sender<RPCMessage>>,
     rpc_receiver: Option<Receiver<RPCMessage>>,
-    // timer_notifier: Option<Sender<()>>,
-    // timer_receiver: Option<Receiver<()>>,
+    timeout_notifier: Option<Sender<()>>,
+    timeout_receiver: Option<Receiver<()>>,
     cluster_info: ClusterInfo,
 }
 
@@ -60,13 +62,16 @@ impl Node {
         heartbeat_interval: u32,
         node_list: Vec<String>,
     ) -> Node {
-        let (tx, rx) = unbounded();
+        let (rpc_tx, rpc_rx) = unbounded();
+        let (timeout_tx, timeout_rx) = unbounded();
         Node {
             node_info: NodeInfo {
                 host,
                 port,
-                rpc_notifier: Some(tx),
-                rpc_receiver: Some(rx),
+                rpc_notifier: Some(rpc_tx),
+                rpc_receiver: Some(rpc_rx),
+                timeout_notifier: Some(timeout_tx),
+                timeout_receiver: Some(timeout_rx),
                 cluster_info: ClusterInfo::new(node_number, heartbeat_interval, node_list),
             },
             raft_info: RaftInfo {
@@ -99,18 +104,36 @@ impl Node {
         }
     }
 
-    fn start_raft_server(rpc_receiver: Receiver<RPCMessage>) {
+    fn start_raft_server(
+        rpc_receiver: Receiver<(RPCMessage)>, 
+        timeout_receiver: Receiver<()>,
+    ) {
         loop {
             select! {
                 recv(rpc_receiver) -> msg => {
                     // Handle the RPC request
                     println!("Receive RPC request: {:?}", msg);
                 }
+                recv(timeout_receiver) -> msg => {
+                    // handle the timeout request
+                    println!("oh! timeout");
+                }
             }
         }
     }
 
+    fn start_timer(timeout_notifier: Sender<()>) {
+        loop {
+            let interval: u64 = rand::thread_rng().gen_range(300,500);
+            sleep(Duration::from_millis(interval));
+            // generate the request: ()
+            timeout_notifier.send(()).unwrap();
+            println!("timeout after {} milliseconds", interval);
+        }
+    }
+
     pub fn run(&mut self) {
+        //RPC
         if let Some(tx) = self.node_info.rpc_notifier.take() {
             if let Some(socket_addr) = format!("{}:{}", self.node_info.host, self.node_info.port)
                 .to_socket_addrs()
@@ -126,9 +149,21 @@ impl Node {
                 });
             }
         }
-        if let Some(tr) = self.node_info.rpc_receiver.take() {
-            println!("Starting Raft Algorithm");
-            Node::start_raft_server(tr);
+
+        // timer
+        if let Some(timeout_tx) = self.node_info.timeout_notifier.take() {
+            println!("Starting timer");
+            thread::spawn(move || {
+                Node::start_timer(timeout_tx);
+            });
+        }
+
+        // receiver
+        if let Some(rpc_rx) = self.node_info.rpc_receiver.take() {
+            if let Some(timeout_rx) = self.node_info.timeout_receiver.take() {
+                println!("Starting Raft Algorithm");
+                Node::start_raft_server(rpc_rx, timeout_rx);
+            }
         }
     }
 }
