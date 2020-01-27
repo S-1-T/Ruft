@@ -1,6 +1,4 @@
 mod node;
-
-#[macro_use]
-extern crate crossbeam_channel;
+mod rpc;
 
 pub use node::Node;

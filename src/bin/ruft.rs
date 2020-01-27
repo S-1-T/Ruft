@@ -10,6 +10,14 @@ fn main() {
         .author("JmPotato <ghzpotato@gmail.com>")
         .about("Rust implementation of raft distributed consensus algorithm")
         .arg(
+            Arg::with_name("id")
+                .long("id")
+                .value_name("ID")
+                .help("Sets the node's id")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(
             Arg::with_name("host")
                 .long("host")
                 .value_name("HOST")
@@ -32,11 +40,17 @@ fn main() {
         )
         .get_matches();
 
+    let mut node_id: u32 = 0;
     let mut node_host: String = String::from("127.0.0.1");
     let mut node_port: u16 = 5299;
     let mut node_num: u32 = 5;
     let heartbeat_interval: u32 = 5;
     let mut node_list: Vec<String> = Vec::new();
+
+    if let Some(id) = matches.value_of("id") {
+        println!("ID: {}", id);
+        node_id = id.parse::<u32>().unwrap();
+    }
 
     if let Some(host) = matches.value_of("host") {
         println!("Host: {}", host);
@@ -56,6 +70,7 @@ fn main() {
     let mut node = Node::new(
         node_host,
         node_port,
+        node_id,
         node_num,
         heartbeat_interval,
         node_list,
