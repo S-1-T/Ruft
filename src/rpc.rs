@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 
 #[derive(Serialize, Deserialize, Debug)]
 enum Message {
@@ -43,9 +44,9 @@ pub struct RPCMessage {
 }
 
 impl RPCMessage {
-    pub fn from_json(json_str: String) -> RPCMessage {
-        let rpc_message: RPCMessage = serde_json::from_str(json_str.as_str()).unwrap();
+    pub fn from_json(json_str: String) -> Result<RPCMessage, Box<dyn Error>> {
+        let rpc_message: RPCMessage = serde_json::from_str(json_str.as_str())?;
 
-        rpc_message
+        Ok(rpc_message)
     }
 }

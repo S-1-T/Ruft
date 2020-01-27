@@ -67,7 +67,7 @@ fn main() {
         node_num = num.parse::<u32>().unwrap();
     }
 
-    let mut node = Node::new(
+    let ruft_node = Node::new(
         node_host,
         node_port,
         node_id,
@@ -76,5 +76,13 @@ fn main() {
         node_list,
     );
 
-    node.run();
+    let mut ruft_node = match ruft_node {
+        Ok(node) => node,
+        Err(error) => panic!("Creating Node Error: {}", error),
+    };
+
+    match ruft_node.run() {
+        Ok(()) => println!("Node Stopped"),
+        Err(error) => panic!("Running Node Error: {}", error),
+    };
 }
