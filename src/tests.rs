@@ -2,7 +2,7 @@ use super::rpc::{Message, RPCMessage, RequestVoteRequest, RPCCS};
 use super::timer::NodeTimer;
 use crossbeam_channel::{select, unbounded};
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::sync::Arc;
 use std::thread;
 
@@ -66,11 +66,14 @@ fn timer_run_heartbeat() {
     let timer = NodeTimer::new(5).unwrap();
     timer.run_heartbeat();
 
+    let now = Instant::now();
     let mut count = 0;
-    select! {
-        recv(timer.receiver) -> _ => count += 1,
-        default(Duration::from_millis(50)) => assert_eq!(count, 10)
+    while count != 10 {
+        select! {
+            recv(timer.receiver) -> _ => count += 1,
+        }
     }
+    assert!(now.elapsed() < Duration::from_millis(100)); 
 }
 
 // #[test]
