@@ -146,40 +146,38 @@ impl Node {
 
     fn start_raft_server(&mut self) -> Result<(), Box<dyn Error>> {
         println!("Starting Raft Algorithm");
-                loop {
-                    select! {
-                        recv(self.rpc.receiver.as_ref().unwrap()) -> msg => {
-                            // Handle the RPC request
-                            let msg = msg?;
-                            println!("Receive RPC request: {:?}", msg.message);
-                            match msg.message {
-                                Message::AppendEntriesRequest(request) => {
-                                    // To-do: Handle AppendEntries
-                                },
-                                Message::AppendEntriesResponse(request) => {
-                                    // To-do: Handle AppendEntries
-                                },
-                                Message::RequestVoteRequest(request) => {
-                                    // To-do: Handle RequestVote
-                                },
-                                Message::RequestVoteResponse(request) => {
-                                    // To-do: Handle RequestVote
-                                },
-                            }
-                        }
-                        recv(self.timer.receiver.as_ref().unwrap()) -> _msg => {
-                            // handle the timeout request
-                            println!("Timeout occur");
-                            if self.raft_info.role.is_candidate() {
-                                // Election failed
-                            }
-                            if self.raft_info.role.is_follower() {
-                                self.change_to(Role::Candidate);
-                            }
-                        }
+        loop {
+            select! {
+                recv(self.rpc.receiver.as_ref().unwrap()) -> msg => {
+                    // Handle the RPC request
+                    let msg = msg?;
+                    println!("Receive RPC request: {:?}", msg.message);
+                    match msg.message {
+                        Message::AppendEntriesRequest(request) => {
+                            // To-do: Handle AppendEntries
+                        },
+                        Message::AppendEntriesResponse(request) => {
+                            // To-do: Handle AppendEntries
+                        },
+                        Message::RequestVoteRequest(request) => {
+                            // To-do: Handle RequestVote
+                        },
+                        Message::RequestVoteResponse(request) => {
+                            // To-do: Handle RequestVote
+                        },
                     }
-                
-            
+                }
+                recv(self.timer.receiver) -> _msg => {
+                    // handle the timeout request
+                    println!("Timeout occur");
+                    if self.raft_info.role.is_candidate() {
+                        self.timer.reset_elect();
+                    }
+                    if self.raft_info.role.is_follower() {
+                        self.change_to(Role::Candidate);
+                    }
+                }
+            }
         }
         Ok(())
     }

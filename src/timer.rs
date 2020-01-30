@@ -1,81 +1,91 @@
-use crossbeam_channel::{unbounded, Receiver, Sender};
-use cancellable_timer::*;
+use crossbeam_channel::{select, bounded, Receiver, Sender};
 use rand::Rng;
-use std::sync::Arc;
+use std::io;
+use std::sync::*;
 use std::thread;
 use std::error::Error;
 use std::time::Duration;
 
 use crate::error::InitializationError;
 
+#[derive(Clone)]
+struct Clock {
+    canceller: Sender<()>,
+    cancellee: Receiver<()>,
+}
+
+impl Clock {
+    fn sleep(&self, duration: Duration) -> io::Result<()> {
+        select! {
+            recv(self.cancellee) -> _ => Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "timer cancelled"),
+            ),
+            default(duration) => Ok(())
+        }
+    }
+}
 
 pub struct NodeTimer {
-    timer: Option<Timer>,
-    canceller: Option<Canceller>,
     notifier: Arc<Sender<()>>,
-    pub receiver: Option<Receiver<()>>,
-    heartbeat_interval: Option<Duration>,
+    pub receiver: Arc<Receiver<()>>,
+    clock: Arc<Clock>,
+    heartbeat_interval: Arc<Duration>,
 }
 
 impl NodeTimer {
-    pub fn new(interval: u32) -> Result<NodeTimer, Box<dyn Error>> {
-        let (mut timer, canceller) = Timer::new2()?;
-        let (tx, rx) = unbounded();
+    /// Create a [Timer](struct.Timer.html) and its associated [Canceller](struct.Canceller.html).
+    pub fn new(interval: u32) -> Result<Self, Box<dyn Error>> {
+        let (notifier, receiver) = bounded(0);
+        let (canceller, cancellee) = bounded(0);
+
         return Ok(NodeTimer {
-            timer: Some(timer),
-            canceller: Some(canceller),
-            notifier: Arc::new(tx),
-            receiver: Some(rx),
-            heartbeat_interval: Some(Duration::from_millis(interval as u64)),
+            notifier: Arc::new(notifier),
+            receiver: Arc::new(receiver),
+            clock: Arc::new(Clock{canceller, cancellee}),
+            heartbeat_interval: Arc::new(Duration::from_millis(interval as u64)),
         });
         Err(Box::new(InitializationError::TimerInitializationError))
     }
 
-    // start election
-    pub fn run_elect(&mut self) {
-        if let Some(mut timer) = self.timer.take() {
-            let timeout_notifier = Arc::clone(&self.notifier);
-            thread::spawn(move || {
-                let mut interval = Duration::from_millis(rand::thread_rng().gen_range(100, 500));
-                while timer.sleep(interval).is_err() {
-                    // timer.sleep return Ok(()) if the given time has elapsed
-                    // else return Err(...) 
-                    interval = Duration::from_millis(rand::thread_rng().gen_range(100, 500));
-                }           
-                
-                timeout_notifier.send(());
-                println!("election timeout after {} milliseconds", interval.as_millis());      
-            });
-        }
+    pub fn run_elect(&self) {
+        let clock = Arc::clone(&self.clock);
+        let notifier = Arc::clone(&self.notifier);
+        thread::spawn(move || {
+            let mut interval = Duration::from_millis(rand::thread_rng().gen_range(100, 500));
+            while clock.sleep(interval).is_err() {
+                // timer.sleep return Ok(()) if the given time has elapsed
+                // else return Err(...) 
+                interval = Duration::from_millis(rand::thread_rng().gen_range(100, 500));
+            }                
+            notifier.send(());
+            println!("election timeout after {} milliseconds", interval.as_millis()); 
+        });
     }
 
     // must run timer before reset
-    pub fn reset_elect(&mut self) {
-        if let Some(canceller) = self.canceller.take() {
-            canceller.cancel();
-        }
+    pub fn reset_elect(&self) {
+        self.clock.canceller.try_send(());
     }
 
-
     // start heartbeat
-    pub fn run_heartbeat(&mut self) {
-        if let Some(mut timer) = self.timer.take() {
-            let timeout_notifier =  Arc::clone(&self.notifier);
-            if let Some(heartbeat_interval) = self.heartbeat_interval.take() {
-                thread::spawn(move || {
-                    while timer.sleep(heartbeat_interval).is_ok() {
-                        timeout_notifier.send(());
+    pub fn run_heartbeat(&self) {
+        let clock = Arc::clone(&self.clock);
+        let notifier =  Arc::clone(&self.notifier);
+        let heartbeat_interval = Arc::clone(&self.heartbeat_interval);
+
+        thread::spawn(move || {
+            while clock.sleep(*heartbeat_interval).is_ok() {
+                notifier.send(());
+                println!("heartbeat after {} milliseconds", heartbeat_interval.as_millis());                
                         println!("heartbeat after {} milliseconds", heartbeat_interval.as_millis());                
-                    }
-                });
-            } 
-        }
+                println!("heartbeat after {} milliseconds", heartbeat_interval.as_millis());                
+            }
+        });
     }
 
     // can be deleted, depend on how to change leader to follower
-    pub fn stop_heartbeat(&mut self) {
-        if let Some(canceller) = self.canceller.take() {
-            canceller.cancel();
-        }
+    pub fn stop_heartbeat(&self) {
+        self.clock.canceller.try_send(());
     }
 }
