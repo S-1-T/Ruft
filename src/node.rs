@@ -170,7 +170,8 @@ impl Node {
                     // handle the timeout request
                     info!("Timeout occur");
                     if self.raft_info.role.is_candidate() {
-                        self.timer.reset_elect();
+                        self.raft_info.current_term += 1;
+                        // request_vote();
                     }
                     if self.raft_info.role.is_follower() {
                         self.change_to(Role::Candidate);
