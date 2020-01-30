@@ -34,23 +34,17 @@ fn rpc_send_rec() {
 fn timer_run_elect() {
     let timer = NodeTimer::new(5).unwrap();
     timer.run_elect();
-    select! {
-        recv(timer.receiver) -> msg => {
-            assert_eq!( (), msg.unwrap() );
-        }
-    }
+    timer.receiver.recv().unwrap();
 }
 
 #[test]
 fn timer_reset_elect() {
     let timer = NodeTimer::new(5).unwrap();
     timer.run_elect();
+    timer.receiver.recv().unwrap();
+    timer.run_elect();
     timer.reset_elect();
-    select! {
-        recv(timer.receiver) -> msg => {
-            assert_eq!( (), msg.unwrap() );
-        }
-    }
+    timer.receiver.recv().unwrap();
 }
 
 #[test]
