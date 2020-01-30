@@ -1,12 +1,12 @@
+use crate::error::InitializationError;
+use crate::rpc::{Message, RPCMessage, RPCCS};
+use crate::timer::NodeTimer;
 use crossbeam_channel::{select, unbounded, Receiver, Sender};
+use log::info;
 use std::error::Error;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 use std::thread;
-
-use crate::error::InitializationError;
-use crate::rpc::{Message, RPCMessage, RPCCS};
-use crate::timer::NodeTimer;
 
 struct ClusterInfo {
     node_number: u32,
@@ -120,7 +120,7 @@ impl Node {
     }
 
     fn start_rpc_listener(&mut self) -> Result<(), Box<dyn Error>> {
-        println!(
+        info!(
             "Starting RPC Server/Client on {}",
             self.rpc.rpc_cs.socket_addr
         );
@@ -129,7 +129,7 @@ impl Node {
             thread::spawn(move || match rpc_cs.start_listener(rpc_notifier) {
                 Ok(()) => Ok(()),
                 Err(error) => {
-                    println!("RPC Clent/Server start_listener error: {}", error);
+                    info!("RPC Clent/Server start_listener error: {}", error);
                     return Err(Box::new(InitializationError::RPCInitializationError));
                 }
             });
@@ -138,20 +138,19 @@ impl Node {
     }
 
     fn start_timer(&mut self) -> Result<(), Box<dyn Error>> {
-        println!("Starting Timer");
+        info!("Starting Timer");
         self.timer.run_elect();
         Ok(())
     }
 
-
     fn start_raft_server(&mut self) -> Result<(), Box<dyn Error>> {
-        println!("Starting Raft Algorithm");
+        info!("Starting Raft Algorithm");
         loop {
             select! {
                 recv(self.rpc.receiver.as_ref().unwrap()) -> msg => {
                     // Handle the RPC request
                     let msg = msg?;
-                    println!("Receive RPC request: {:?}", msg.message);
+                    info!("Receive RPC request: {:?}", msg.message);
                     match msg.message {
                         Message::AppendEntriesRequest(request) => {
                             // To-do: Handle AppendEntries
@@ -169,7 +168,7 @@ impl Node {
                 }
                 recv(self.timer.receiver) -> _msg => {
                     // handle the timeout request
-                    println!("Timeout occur");
+                    info!("Timeout occur");
                     if self.raft_info.role.is_candidate() {
                         self.timer.reset_elect();
                     }
@@ -179,7 +178,6 @@ impl Node {
                 }
             }
         }
-        Ok(())
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
