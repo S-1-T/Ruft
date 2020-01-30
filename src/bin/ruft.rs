@@ -1,10 +1,13 @@
+#[macro_use]
+extern crate simple_logger;
 extern crate clap;
 
 use clap::{App, Arg};
-
 use ruft::Node;
 
 fn main() {
+    simple_logger::init().unwrap();
+    // Init command line args handler
     let matches = App::new("ruft")
         .version("0.1")
         .author("JmPotato <ghzpotato@gmail.com>")
@@ -40,6 +43,8 @@ fn main() {
         )
         .get_matches();
 
+    println!("[Node Configuration]");
+
     let mut node_id: u32 = 0;
     let mut node_host: String = String::from("127.0.0.1");
     let mut node_port: u16 = 5299;
@@ -66,6 +71,8 @@ fn main() {
         println!("Num: {}", num);
         node_num = num.parse::<u32>().unwrap();
     }
+
+    println!("\n[Node Logs]");
 
     let ruft_node = Node::new(
         node_host,

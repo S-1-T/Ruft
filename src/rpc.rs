@@ -1,10 +1,11 @@
 use crossbeam_channel::Sender;
+use log::info;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::error::Error;
 use std::net::{SocketAddr, UdpSocket};
-use serde_json::json;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub enum Message {
     AppendEntriesRequest(AppendEntriesRequest),
     AppendEntriesResponse(AppendEntriesResponse),
@@ -12,7 +13,7 @@ pub enum Message {
     RequestVoteResponse(RequestVoteResponse),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct AppendEntriesRequest {
     term: u32,
     leader_id: u32,
@@ -22,13 +23,39 @@ pub struct AppendEntriesRequest {
     leader_commit: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+impl AppendEntriesRequest {
+    pub fn new(
+        term: u32,
+        leader_id: u32,
+        prev_log_index: u32,
+        prev_log_term: u32,
+        entries: Vec<String>,
+        leader_commit: u32,
+    ) -> AppendEntriesRequest {
+        AppendEntriesRequest {
+            term,
+            leader_id,
+            prev_log_index,
+            prev_log_term,
+            entries,
+            leader_commit,
+        }
+    }
+}
+
+#[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct AppendEntriesResponse {
     term: u32,
     success: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+impl AppendEntriesResponse {
+    pub fn new(term: u32, success: bool) -> AppendEntriesResponse {
+        AppendEntriesResponse { term, success }
+    }
+}
+
+#[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct RequestVoteRequest {
     term: u32,
     candidated_id: u32,
@@ -36,12 +63,35 @@ pub struct RequestVoteRequest {
     last_log_term: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+impl RequestVoteRequest {
+    pub fn new(
+        term: u32,
+        candidated_id: u32,
+        last_log_index: u32,
+        last_log_term: u32,
+    ) -> RequestVoteRequest {
+        RequestVoteRequest {
+            term,
+            candidated_id,
+            last_log_index,
+            last_log_term,
+        }
+    }
+}
+
+#[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct RequestVoteResponse {
     term: u32,
     vote_granted: bool,
 }
-#[derive(Serialize, Deserialize, Debug)]
+
+impl RequestVoteResponse {
+    pub fn new(term: u32, vote_granted: bool) -> RequestVoteResponse {
+        RequestVoteResponse { term, vote_granted }
+    }
+}
+
+#[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct RPCMessage {
     pub message: Message,
 }
@@ -82,7 +132,7 @@ impl RPCCS {
         loop {
             let mut buffer = [0; 1024];
             let (amt, _) = self.socket.recv_from(&mut buffer)?;
-            println!(
+            info!(
                 "Receive Raw Data: {}",
                 String::from_utf8_lossy(&buffer[..amt])
             );
@@ -95,7 +145,12 @@ impl RPCCS {
     }
 
     // Send request to one node in peer_list
-    pub fn send_to(&self, recv_node: SocketAddr, message_to_send: RPCMessage) -> Result<(), Box<dyn Error>> {    //recv_node: host, port
+    pub fn send_to(
+        &self,
+        recv_node: SocketAddr,
+        message_to_send: &RPCMessage,
+    ) -> Result<(), Box<dyn Error>> {
+        //recv_node: host, port
         let msg_parsed = json!(message_to_send).to_string();
         let buffer = msg_parsed.as_bytes();
         self.socket.send_to(&buffer, recv_node)?;
@@ -103,7 +158,7 @@ impl RPCCS {
     }
 
     // Send request to all nodes in peer_list, eg, heartbeat
-    pub fn send_all(&self, message_to_send: RPCMessage) -> Result<(), Box<dyn Error>> {
+    pub fn send_all(&self, message_to_send: &RPCMessage) -> Result<(), Box<dyn Error>> {
         for peer in &self.peer_list {
             let msg_parsed = json!(message_to_send).to_string();
             let buffer = msg_parsed.as_bytes();

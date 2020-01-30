@@ -1,9 +1,10 @@
-use crossbeam_channel::{select, bounded, Receiver, Sender};
+use crossbeam_channel::{bounded, select, Receiver, Sender};
+use log::info;
 use rand::Rng;
+use std::error::Error;
 use std::io;
 use std::sync::*;
 use std::thread;
-use std::error::Error;
 use std::time::Duration;
 
 use crate::error::InitializationError;
@@ -19,7 +20,7 @@ impl Clock {
         select! {
             recv(self.cancellee) -> _ => Err(io::Error::new(
                 io::ErrorKind::Interrupted,
-                "timer cancelled"),
+                "Timer cancelled"),
             ),
             default(duration) => Ok(())
         }
@@ -42,10 +43,12 @@ impl NodeTimer {
         return Ok(NodeTimer {
             notifier: Arc::new(notifier),
             receiver: Arc::new(receiver),
-            clock: Arc::new(Clock{canceller, cancellee}),
+            clock: Arc::new(Clock {
+                canceller,
+                cancellee,
+            }),
             heartbeat_interval: Arc::new(Duration::from_millis(interval as u64)),
         });
-        Err(Box::new(InitializationError::TimerInitializationError))
     }
 
     pub fn run_elect(&self) {
@@ -55,11 +58,14 @@ impl NodeTimer {
             let mut interval = Duration::from_millis(rand::thread_rng().gen_range(100, 500));
             while clock.sleep(interval).is_err() {
                 // timer.sleep return Ok(()) if the given time has elapsed
-                // else return Err(...) 
+                // else return Err(...)
                 interval = Duration::from_millis(rand::thread_rng().gen_range(100, 500));
-            }                
+            }
             notifier.send(());
-            println!("election timeout after {} milliseconds", interval.as_millis()); 
+            info!(
+                "Election timeout after {} milliseconds",
+                interval.as_millis()
+            );
         });
     }
 
@@ -71,15 +77,16 @@ impl NodeTimer {
     // start heartbeat
     pub fn run_heartbeat(&self) {
         let clock = Arc::clone(&self.clock);
-        let notifier =  Arc::clone(&self.notifier);
+        let notifier = Arc::clone(&self.notifier);
         let heartbeat_interval = Arc::clone(&self.heartbeat_interval);
 
         thread::spawn(move || {
             while clock.sleep(*heartbeat_interval).is_ok() {
                 notifier.send(());
-                println!("heartbeat after {} milliseconds", heartbeat_interval.as_millis());                
-                        println!("heartbeat after {} milliseconds", heartbeat_interval.as_millis());                
-                println!("heartbeat after {} milliseconds", heartbeat_interval.as_millis());                
+                info!(
+                    "Heartbeat after {} milliseconds",
+                    heartbeat_interval.as_millis()
+                );
             }
         });
     }
