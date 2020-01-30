@@ -2,6 +2,7 @@ use crossbeam_channel::Sender;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::net::{SocketAddr, UdpSocket};
+use serde_json::json;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
@@ -94,12 +95,20 @@ impl RPCCS {
     }
 
     // Send request to one node in peer_list
-    pub fn send_to() -> Result<(), Box<dyn Error>> {
+    pub fn send_to(&self, recv_node: SocketAddr, message_to_send: RPCMessage) -> Result<(), Box<dyn Error>> {    //recv_node: host, port
+        let msg_parsed = json!(message_to_send).to_string();
+        let buffer = msg_parsed.as_bytes();
+        self.socket.send_to(&buffer, recv_node)?;
         Ok(())
     }
 
     // Send request to all nodes in peer_list, eg, heartbeat
-    pub fn send_all() -> Result<(), Box<dyn Error>> {
+    pub fn send_all(&self, message_to_send: RPCMessage) -> Result<(), Box<dyn Error>> {
+        for peer in &self.peer_list {
+            let msg_parsed = json!(message_to_send).to_string();
+            let buffer = msg_parsed.as_bytes();
+            self.socket.send_to(&buffer, peer)?;
+        }
         Ok(())
     }
 }
