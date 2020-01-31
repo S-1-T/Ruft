@@ -34,31 +34,17 @@ fn rpc_send_rec() {
 fn timer_run_elect() {
     let timer = NodeTimer::new(5).unwrap();
     timer.run_elect();
-    select! {
-        recv(timer.receiver) -> msg => {
-            assert_eq!( (), msg.unwrap() );
-        }
-    }
+    timer.receiver.recv().unwrap();
 }
 
 #[test]
-fn timer_reset_elect() -> Result<(), String> {
-    let timer: Arc<NodeTimer>= Arc::new(NodeTimer::new(5).unwrap());
+fn timer_reset_elect() {
+    let timer = NodeTimer::new(5).unwrap();
     timer.run_elect();
-
-    let t = Arc::clone(&timer);
-    thread::spawn(move || {
-        // timer alarm after at least 500 ms
-        for _ in 0..10 {
-            thread::sleep_ms(50);
-            t.reset_elect();
-        }
-    });
-
-    select! {
-        recv(timer.receiver) -> _ => Err(String::from("reset failure")),
-        default(Duration::from_millis(500)) => Ok(()),
-    }
+    timer.receiver.recv().unwrap();
+    timer.run_elect();
+    timer.reset_elect();
+    timer.receiver.recv().unwrap();
 }
 
 #[test]
