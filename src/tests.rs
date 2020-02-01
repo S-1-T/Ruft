@@ -2,9 +2,9 @@ use super::rpc::{Message, RPCMessage, RequestVoteRequest, RPCCS};
 use super::timer::NodeTimer;
 use crossbeam_channel::{select, unbounded};
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::time::{Duration, Instant};
 use std::sync::Arc;
 use std::thread;
+use std::time::{Duration, Instant};
 
 #[test]
 fn rpc_send_rec() {
@@ -58,7 +58,7 @@ fn timer_run_heartbeat() {
             recv(timer.receiver) -> _ => count += 1,
         }
     }
-    assert_eq!(count, 10); 
+    assert_eq!(count, 10);
 }
 
 // #[test]
