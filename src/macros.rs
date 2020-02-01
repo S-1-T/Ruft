@@ -3,6 +3,7 @@ use crate::rpc::{
     RequestVoteResponse,
 };
 
+#[macro_export]
 macro_rules! append_entries_request {
     //parameter:&self, entries:Vec<String>, peer:String("all")
     ($node:expr, $entries: expr, "all") => {
@@ -35,6 +36,7 @@ macro_rules! append_entries_request {
     };
 }
 
+#[macro_export]
 macro_rules! append_entries_response {
     //parameter:&self, success:bool, peer:String
     ($node:expr, $success: expr, $peer: expr) => {
@@ -51,6 +53,7 @@ macro_rules! append_entries_response {
     };
 }
 
+#[macro_export]
 macro_rules! request_vote_request {
     //parameter:&self (send to all)
     ($node:expr) => {
@@ -65,6 +68,7 @@ macro_rules! request_vote_request {
     };
 }
 
+#[macro_export]
 macro_rules! request_vote_response {
     //parameter:&self, success:bool
     ($node:expr, $vote_granted: expr, $peer: expr) => {
