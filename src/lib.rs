@@ -2,11 +2,6 @@ mod error;
 mod node;
 mod rpc;
 mod timer;
-
-#[macro_use]
-mod macros;
+mod tests;
 
 pub use node::Node;
-
-#[cfg(test)]
-mod tests;

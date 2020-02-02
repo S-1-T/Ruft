@@ -1,9 +1,13 @@
+#[macro_use]
+pub mod macros;
+
 use crossbeam_channel::Sender;
 use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::error::Error;
 use std::net::{SocketAddr, UdpSocket};
+
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub enum Message {

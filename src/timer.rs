@@ -7,7 +7,6 @@ use std::sync::*;
 use std::thread;
 use std::time::Duration;
 
-use crate::error::InitializationError;
 
 #[derive(Clone)]
 struct Clock {
@@ -40,7 +39,7 @@ impl NodeTimer {
         let (notifier, receiver) = bounded(0);
         let (canceller, cancellee) = bounded(0);
 
-        return Ok(NodeTimer {
+        Ok(NodeTimer {
             notifier: Arc::new(notifier),
             receiver: Arc::new(receiver),
             clock: Arc::new(Clock {
@@ -48,7 +47,7 @@ impl NodeTimer {
                 cancellee,
             }),
             heartbeat_interval: Arc::new(Duration::from_millis(interval as u64)),
-        });
+        })
     }
 
     pub fn run_elect(&self) {
