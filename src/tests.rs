@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+#[cfg(test)]
 #[test]
 fn rpc_send_rec() {
     let socket_addr = Arc::new("127.0.0.1:2995".to_socket_addrs().unwrap().next().unwrap());
@@ -40,8 +41,6 @@ fn timer_run_elect() {
 #[test]
 fn timer_reset_elect() {
     let timer = NodeTimer::new(5).unwrap();
-    timer.run_elect();
-    timer.receiver.recv().unwrap();
     timer.run_elect();
     timer.reset_elect();
     timer.receiver.recv().unwrap();

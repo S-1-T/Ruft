@@ -1,8 +1,5 @@
 use crate::error::InitializationError;
-use crate::rpc::{
-    AppendEntriesRequest, AppendEntriesResponse, Message, RPCMessage, RequestVoteRequest,
-    RequestVoteResponse, RPCCS,
-};
+use crate::rpc::*;
 use crate::timer::NodeTimer;
 use crossbeam_channel::{select, unbounded, Receiver, Sender};
 use log::info;
@@ -11,6 +8,11 @@ use std::error::Error;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 use std::thread;
+
+#[macro_use]
+use crate::{append_entries_request, append_entries_response,
+            request_vote_request, request_vote_response};
+
 
 struct ClusterInfo {
     node_number: u32,
@@ -136,7 +138,7 @@ impl Node {
                 Ok(()) => Ok(()),
                 Err(error) => {
                     info!("RPC Clent/Server start_listener error: {}", error);
-                    return Err(Box::new(InitializationError::RPCInitializationError));
+                    Err(Box::new(InitializationError::RPCInitializationError))
                 }
             });
         };
@@ -177,8 +179,8 @@ impl Node {
                     info!("Timeout occur");
                     if self.raft_info.role.is_candidate() {
                         self.raft_info.current_term += 1;
-                        // request_vote();
-                    }
+                        request_vote_request!(&self);
+                    } 
                     if self.raft_info.role.is_follower() {
                         self.change_to(Role::Candidate);
                     }
