@@ -1,17 +1,15 @@
 use crate::error::InitializationError;
-use crate::rpc::*;
 use crate::timer::NodeTimer;
-use crossbeam_channel::{select, unbounded, Receiver, Sender};
+use crate::rpc::*;
+use crate::raft::*;
+
+use crossbeam_channel::{select, unbounded};
 use log::info;
 use serde::de::Unexpected::Str;
 use std::error::Error;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 use std::thread;
-
-#[macro_use]
-use crate::{append_entries_request, append_entries_response,
-            request_vote_request, request_vote_response};
 
 
 struct ClusterInfo {
@@ -32,46 +30,6 @@ impl ClusterInfo {
             node_list,
         }
     }
-}
-
-struct Rpc {
-    rpc_cs: Arc<RPCCS>,
-    notifier: Option<Sender<RPCMessage>>,
-    receiver: Option<Receiver<RPCMessage>>,
-}
-
-// Role of a Node
-#[derive(PartialEq, Copy, Clone)]
-enum Role {
-    Follower,
-    Candidate,
-    Leader,
-}
-
-impl Role {
-    fn is_follower(self) -> bool {
-        self == Role::Follower
-    }
-
-    fn is_candidate(self) -> bool {
-        self == Role::Candidate
-    }
-
-    fn is_leader(self) -> bool {
-        self == Role::Leader
-    }
-}
-
-struct RaftInfo {
-    node_id: u32,
-    role: Role,
-    current_term: u32,
-    voted_for: u32,
-    logs: Vec<(u32, String)>,
-    commit_index: u32,
-    last_applied: u32,
-    next_index: Vec<u32>,
-    match_index: Vec<u32>,
 }
 
 pub struct Node {
@@ -108,14 +66,12 @@ impl Node {
                 },
                 raft_info: RaftInfo {
                     node_id,
-                    role: Role::Follower,
+                    role: Follower::new().unwrap(),
                     current_term: 0,
                     voted_for: 0,
                     logs: log_vec,
                     commit_index: 0,
                     last_applied: 0,
-                    next_index: Vec::<u32>::new(),
-                    match_index: Vec::<u32>::new(),
                 },
                 timer: NodeTimer::new(heartbeat_interval)?,
             });
@@ -123,8 +79,12 @@ impl Node {
         Err(Box::new(InitializationError::NodeInitializationError))
     }
 
-    fn change_to(&mut self, new_role: Role) {
-        self.raft_info.role = new_role;
+    fn change_to(&mut self, rolename: Role) {
+        match rolename {
+            Role::Follower => self.raft_info.role = Follower::new().unwrap(),
+            Role::Candidate => self.raft_info.role = Candidate::new().unwrap(),
+            Role::Leader => self.raft_info.role = Leader::new().unwrap(),
+        }
     }
 
     fn start_rpc_listener(&mut self) -> Result<(), Box<dyn Error>> {
@@ -161,29 +121,27 @@ impl Node {
                     info!("Receive RPC request: {:?}", msg.message);
                     match msg.message {
                         Message::AppendEntriesRequest(request) => {
-                            // To-do: Handle AppendEntries
+                            info!("Message: Append entries request");
+                            self.raft_info.role.handle_append_entries_request();
                         },
                         Message::AppendEntriesResponse(request) => {
-                            // To-do: Handle AppendEntries
+                            info!("Message: Append entries response");
+                            self.raft_info.role.handle_append_entries_response();
                         },
                         Message::RequestVoteRequest(request) => {
-                            // To-do: Handle RequestVote
+                            info!("Message: Request vote request");
+                            self.raft_info.role.handle_request_vote_request();
                         },
                         Message::RequestVoteResponse(request) => {
-                            // To-do: Handle RequestVote
+                            info!("Message: Request vote response");
+                            self.raft_info.role.handle_request_vote_response();
                         },
                     }
                 }
-                recv(self.timer.receiver) -> _msg => {
+                recv(self.timer.receiver) -> msg => {
                     // handle the timeout request
                     info!("Timeout occur");
-                    if self.raft_info.role.is_candidate() {
-                        self.raft_info.current_term += 1;
-                        request_vote_request!(&self);
-                    } 
-                    if self.raft_info.role.is_follower() {
-                        self.change_to(Role::Candidate);
-                    }
+                    self.raft_info.role.handle_timeout();
                 }
             }
         }

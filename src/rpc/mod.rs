@@ -1,13 +1,13 @@
 #[macro_use]
 pub mod macros;
 
-use crossbeam_channel::Sender;
+use crossbeam_channel::{Sender, Receiver};
 use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::error::Error;
 use std::net::{SocketAddr, UdpSocket};
-
+use std::sync::Arc;
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub enum Message {
@@ -19,12 +19,12 @@ pub enum Message {
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct AppendEntriesRequest {
-    term: u32,
-    leader_id: u32,
-    prev_log_index: u32,
-    prev_log_term: u32,
-    entries: Vec<String>,
-    leader_commit: u32,
+    pub term: u32,
+    pub leader_id: u32,
+    pub prev_log_index: u32,
+    pub prev_log_term: u32,
+    pub entries: Vec<String>,
+    pub leader_commit: u32,
 }
 
 impl AppendEntriesRequest {
@@ -49,8 +49,8 @@ impl AppendEntriesRequest {
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct AppendEntriesResponse {
-    term: u32,
-    success: bool,
+    pub term: u32,
+    pub success: bool,
 }
 
 impl AppendEntriesResponse {
@@ -61,10 +61,10 @@ impl AppendEntriesResponse {
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct RequestVoteRequest {
-    term: u32,
-    candidated_id: u32,
-    last_log_index: u32,
-    last_log_term: u32,
+    pub term: u32,
+    pub candidated_id: u32,
+    pub last_log_index: u32,
+    pub last_log_term: u32,
 }
 
 impl RequestVoteRequest {
@@ -85,8 +85,8 @@ impl RequestVoteRequest {
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct RequestVoteResponse {
-    term: u32,
-    vote_granted: bool,
+    pub term: u32,
+    pub vote_granted: bool,
 }
 
 impl RequestVoteResponse {
@@ -170,4 +170,10 @@ impl RPCCS {
         }
         Ok(())
     }
+}
+
+pub struct Rpc {
+    pub rpc_cs: Arc<RPCCS>,
+    pub notifier: Option<Sender<RPCMessage>>,
+    pub receiver: Option<Receiver<RPCMessage>>,
 }
