@@ -5,8 +5,6 @@ use std::fmt;
 pub enum InitializationError {
     NodeInitializationError,
     RPCInitializationError,
-    TimerInitializationError,
-    RaftInitializationError,
 }
 
 impl fmt::Display for InitializationError {
@@ -14,8 +12,6 @@ impl fmt::Display for InitializationError {
         match *self {
             InitializationError::NodeInitializationError => write!(f, "Initializing Node Error"),
             InitializationError::RPCInitializationError => write!(f, "Initializing RPC Error"),
-            InitializationError::TimerInitializationError => write!(f, "Initializing Timer Error"),
-            InitializationError::RaftInitializationError => write!(f, "Initializing Raft Error"),
         }
     }
 }

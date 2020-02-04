@@ -1,81 +1,68 @@
 #[macro_export]
 macro_rules! append_entries_request {
-    //parameter:&self, entries:Vec<String>, peer:String("all")
-    ($node:expr, $entries: expr, "all") => {
-        let AERMsg = RPCMessage::new(Message::AppendEntriesRequest(AppendEntriesRequest::new(
-            $node.raft_info.current_term,
-            $node.raft_info.node_id,
-            $node.raft_info.last_applied,
-            $node.raft_info.logs.last().unwrap().0,
+    //parameter:&self, entries:Vec<String>
+    ($node:expr, $entries: expr) => {
+        let aer_msg = RPCMessage::new(Message::AppendEntriesRequest(AppendEntriesRequest::new(
+            $node.current_term,
+            $node.rpc.cs.socket_addr,
+            $node.last_applied as usize,
+            $node.logs.last().unwrap().term,
             $entries,
-            $node.raft_info.commit_index,
+            $node.commit_index,
         )))
         .unwrap();
-        $node.rpc.rpc_cs.send_all(&AERMsg).unwrap();
-    };
-    ($node:expr, $entries: expr, $peer: expr) => {
-        let AERMsg = RPCMessage::new(Message::AppendEntriesRequest(AppendEntriesRequest::new(
-            $node.raft_info.current_term,
-            $node.raft_info.node_id,
-            $node.raft_info.last_applied,
-            $node.raft_info.logs.last().unwrap().0,
-            $entries,
-            $node.raft_info.commit_index,
-        )))
-        .unwrap();
-        $node
-            .rpc
-            .rpc_cs
-            .send_to($peer.to_socket_addrs()?.next().unwrap(), &AERMsg)
-            .unwrap();
+        $node.rpc.cs.send_all(&aer_msg).unwrap();
     };
 }
 
 #[macro_export]
 macro_rules! append_entries_response {
-    //parameter:&self, success:bool, peer:String
-    ($node:expr, $success: expr, $peer: expr) => {
-        let AERMsg = RPCMessage::new(Message::AppendEntriesResponse(AppendEntriesResponse::new(
-            $node.raft_info.current_term,
+    //parameter:&self, success:bool, leader:SocketAddr
+    ($node:expr, $success: expr, $leader: expr) => {
+        let aer_msg = RPCMessage::new(Message::AppendEntriesResponse(AppendEntriesResponse::new(
+            $node.rpc.cs.socket_addr,
+            $node.logs.last().unwrap().index + 1,
+            $node.logs.last().unwrap().index + 1,
+            $node.current_term,
             $success,
         )))
         .unwrap();
         $node
             .rpc
-            .rpc_cs
-            .send_to($peer.to_socket_addrs()?.next().unwrap(), &AERMsg)
+            .cs
+            .send_to($leader, &aer_msg)
             .unwrap();
     };
 }
 
 #[macro_export]
-macro_rules! request_vote_request {
+macro_rules! request_vote {
     //parameter:&self (send to all)
     ($node:expr) => {
-        let RVRMsg = RPCMessage::new(Message::RequestVoteRequest(RequestVoteRequest::new(
-            $node.raft_info.current_term,
-            $node.raft_info.node_id,
-            $node.raft_info.last_applied,
-            $node.raft_info.logs.last().unwrap().0,
+        let rvr_msg = RPCMessage::new(Message::RequestVoteRequest(RequestVoteRequest::new(
+            $node.current_term,
+            $node.rpc.cs.socket_addr,
+            $node.last_applied as usize,
+            $node.logs.last().unwrap().term,
         )))
         .unwrap();
-        $node.rpc.rpc_cs.send_all(&RVRMsg).unwrap();
+        $node.rpc.cs.send_all(&rvr_msg).unwrap();
     };
 }
 
 #[macro_export]
-macro_rules! request_vote_response {
-    //parameter:&self, success:bool
-    ($node:expr, $vote_granted: expr, $peer: expr) => {
-        let RVRMsg = RPCMessage::new(Message::RequestVoteResponse(RequestVoteResponse::new(
-            $node.raft_info.current_term,
+macro_rules! vote_for {
+    //parameter:&self, success:bool, candidate: SocketAddr
+    ($node:expr, $vote_granted: expr, $candidate: expr) => {
+        let rvr_msg = RPCMessage::new(Message::RequestVoteResponse(RequestVoteResponse::new(
+            $node.current_term,
             $vote_granted,
         )))
         .unwrap();
         $node
             .rpc
-            .rpc_cs
-            .send_to($peer.to_socket_addrs()?.next().unwrap(), &RVRMsg)
+            .cs
+            .send_to($candidate, &rvr_msg)
             .unwrap();
     };
 }

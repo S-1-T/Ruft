@@ -18,7 +18,7 @@ fn rpc_send_rec() {
     thread::spawn(move || rpc_client.start_listener(rpc_notifier).unwrap());
 
     let msg_to_send = RPCMessage::new(Message::RequestVoteRequest(RequestVoteRequest::new(
-        0, 0, 0, 0,
+        0, *socket_addr, 0, 0,
     )))
     .unwrap();
 
