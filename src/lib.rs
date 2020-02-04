@@ -3,6 +3,6 @@ mod node;
 mod rpc;
 mod timer;
 mod tests;
-mod raft;
+mod entry;
 
 pub use node::Node;

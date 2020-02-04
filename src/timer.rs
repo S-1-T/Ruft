@@ -1,5 +1,4 @@
 use crossbeam_channel::{bounded, select, Receiver, Sender};
-use log::info;
 use rand::Rng;
 use std::error::Error;
 use std::io;
@@ -54,17 +53,13 @@ impl NodeTimer {
         let clock = Arc::clone(&self.clock);
         let notifier = Arc::clone(&self.notifier);
         thread::spawn(move || {
-            let mut interval = Duration::from_millis(rand::thread_rng().gen_range(100, 500));
+            let mut interval = Duration::from_millis(rand::thread_rng().gen_range(150, 300));
             while clock.sleep(interval).is_err() {
                 // timer.sleep return Ok(()) if the given time has elapsed
                 // else return Err(...)
-                interval = Duration::from_millis(rand::thread_rng().gen_range(100, 500));
+                interval = Duration::from_millis(rand::thread_rng().gen_range(150, 300));
             }
-            notifier.send(());
-            info!(
-                "Election timeout after {} milliseconds",
-                interval.as_millis()
-            );
+            notifier.try_send(());
         });
     }
 
@@ -81,11 +76,7 @@ impl NodeTimer {
 
         thread::spawn(move || {
             while clock.sleep(*heartbeat_interval).is_ok() {
-                notifier.send(());
-                info!(
-                    "Heartbeat after {} milliseconds",
-                    heartbeat_interval.as_millis()
-                );
+                notifier.try_send(());
             }
         });
     }

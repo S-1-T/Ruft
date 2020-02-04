@@ -1,12 +1,14 @@
 #[macro_use]
 pub mod macros;
 
+use crate::entry::Entry;
+
 use crossbeam_channel::{Sender, Receiver};
-use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use log::error;
 use std::error::Error;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{SocketAddr, UdpSocket, ToSocketAddrs};
 use std::sync::Arc;
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
@@ -20,25 +22,25 @@ pub enum Message {
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct AppendEntriesRequest {
     pub term: u32,
-    pub leader_id: u32,
-    pub prev_log_index: u32,
+    pub leader_addr: SocketAddr,
+    pub prev_log_index: usize,
     pub prev_log_term: u32,
-    pub entries: Vec<String>,
-    pub leader_commit: u32,
+    pub entries: Vec<Entry>,
+    pub leader_commit: usize,
 }
 
 impl AppendEntriesRequest {
     pub fn new(
         term: u32,
-        leader_id: u32,
-        prev_log_index: u32,
+        leader_addr: SocketAddr,
+        prev_log_index: usize,
         prev_log_term: u32,
-        entries: Vec<String>,
-        leader_commit: u32,
+        entries: Vec<Entry>,
+        leader_commit: usize,
     ) -> AppendEntriesRequest {
         AppendEntriesRequest {
             term,
-            leader_id,
+            leader_addr,
             prev_log_index,
             prev_log_term,
             entries,
@@ -49,34 +51,48 @@ impl AppendEntriesRequest {
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct AppendEntriesResponse {
+    pub socket_addr: SocketAddr,
+    pub next_index: usize,
+    pub match_index: usize,
     pub term: u32,
     pub success: bool,
 }
 
 impl AppendEntriesResponse {
-    pub fn new(term: u32, success: bool) -> AppendEntriesResponse {
-        AppendEntriesResponse { term, success }
+    pub fn new(socket_addr: SocketAddr,
+        next_index: usize,
+        match_index: usize,
+        term: u32,
+        success: bool
+    ) -> AppendEntriesResponse {
+        AppendEntriesResponse {
+            socket_addr,
+            next_index,
+            match_index,
+            term,
+            success,
+        }
     }
 }
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct RequestVoteRequest {
     pub term: u32,
-    pub candidated_id: u32,
-    pub last_log_index: u32,
+    pub candidated_addr: SocketAddr,
+    pub last_log_index: usize,
     pub last_log_term: u32,
 }
 
 impl RequestVoteRequest {
     pub fn new(
         term: u32,
-        candidated_id: u32,
-        last_log_index: u32,
+        candidated_addr: SocketAddr,
+        last_log_index: usize,
         last_log_term: u32,
     ) -> RequestVoteRequest {
         RequestVoteRequest {
             term,
-            candidated_id,
+            candidated_addr,
             last_log_index,
             last_log_term,
         }
@@ -135,11 +151,13 @@ impl RPCCS {
     pub fn start_listener(&self, rpc_notifier: Sender<RPCMessage>) -> Result<(), Box<dyn Error>> {
         loop {
             let mut buffer = [0; 1024];
-            let (amt, _) = self.socket.recv_from(&mut buffer)?;
-            info!(
-                "Receive Raw Data: {}",
-                String::from_utf8_lossy(&buffer[..amt])
-            );
+            let (amt, _) = match self.socket.recv_from(&mut buffer) {
+                Ok(pair) => pair,
+                Err(_) => {
+                    error!("{} receive error", self.socket_addr.port());
+                    (0, "127.0.0.1:8006".to_socket_addrs()?.next().unwrap())
+                }
+            };
             if let Ok(msg_content) = String::from_utf8(buffer[..amt].to_vec()) {
                 // Handle the raw RPC request from socket buffer
                 let msg_parsed = RPCMessage::from_json(msg_content)?;
@@ -173,7 +191,7 @@ impl RPCCS {
 }
 
 pub struct Rpc {
-    pub rpc_cs: Arc<RPCCS>,
+    pub cs: Arc<RPCCS>,
     pub notifier: Option<Sender<RPCMessage>>,
     pub receiver: Option<Receiver<RPCMessage>>,
 }
