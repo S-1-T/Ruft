@@ -3,12 +3,12 @@ pub mod macros;
 
 use crate::entry::Entry;
 
-use crossbeam_channel::{Sender, Receiver};
+use crossbeam_channel::{Receiver, Sender};
+use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use log::error;
 use std::error::Error;
-use std::net::{SocketAddr, UdpSocket, ToSocketAddrs};
+use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::sync::Arc;
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
@@ -59,11 +59,12 @@ pub struct AppendEntriesResponse {
 }
 
 impl AppendEntriesResponse {
-    pub fn new(socket_addr: SocketAddr,
+    pub fn new(
+        socket_addr: SocketAddr,
         next_index: usize,
         match_index: usize,
         term: u32,
-        success: bool
+        success: bool,
     ) -> AppendEntriesResponse {
         AppendEntriesResponse {
             socket_addr,

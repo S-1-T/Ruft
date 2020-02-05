@@ -6,7 +6,6 @@ use std::sync::*;
 use std::thread;
 use std::time::Duration;
 
-
 #[derive(Clone)]
 struct Clock {
     canceller: Sender<()>,

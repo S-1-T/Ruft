@@ -27,11 +27,7 @@ macro_rules! append_entries_response {
             $success,
         )))
         .unwrap();
-        $node
-            .rpc
-            .cs
-            .send_to($leader, &aer_msg)
-            .unwrap();
+        $node.rpc.cs.send_to($leader, &aer_msg).unwrap();
     };
 }
 
@@ -59,10 +55,6 @@ macro_rules! vote_for {
             $vote_granted,
         )))
         .unwrap();
-        $node
-            .rpc
-            .cs
-            .send_to($candidate, &rvr_msg)
-            .unwrap();
+        $node.rpc.cs.send_to($candidate, &rvr_msg).unwrap();
     };
 }

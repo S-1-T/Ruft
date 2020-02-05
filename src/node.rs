@@ -1,10 +1,10 @@
-use crate::error::InitializationError;
-use crate::timer::NodeTimer;
-use crate::rpc::*;
 use crate::entry::Entry;
+use crate::error::InitializationError;
+use crate::rpc::*;
+use crate::timer::NodeTimer;
 
 use crossbeam_channel::{select, unbounded};
-use log::{info, error};
+use log::{error, info};
 use std::collections::HashMap;
 use std::error::Error;
 use std::net::{SocketAddr, ToSocketAddrs};
@@ -108,10 +108,7 @@ impl Node {
     }
 
     fn start_rpc_listener(&mut self) -> Result<(), Box<dyn Error>> {
-        info!(
-            "Starting RPC Server/Client on {}",
-            self.rpc.cs.socket_addr
-        );
+        info!("Starting RPC Server/Client on {}", self.rpc.cs.socket_addr);
         if let Some(rpc_notifier) = self.rpc.notifier.take() {
             let rpc_cs = Arc::clone(&self.rpc.cs);
             thread::spawn(move || match rpc_cs.start_listener(rpc_notifier) {
@@ -119,7 +116,8 @@ impl Node {
                 Err(error) => {
                     error!(
                         "{} RPC Clent/Server error: {}",
-                        rpc_cs.socket_addr.port(), error
+                        rpc_cs.socket_addr.port(),
+                        error
                     );
                     Err(Box::new(InitializationError::RPCInitializationError))
                 }
@@ -141,7 +139,7 @@ impl Node {
                     // Handle the RPC request
                     let msg = msg?;
                     info!(
-                        "{} receive RPC request: {:?}", 
+                        "{} receive RPC request: {:?}",
                         self.rpc.cs.socket_addr.port(), msg.message
                     );
                     match msg.message {
@@ -175,8 +173,9 @@ impl Node {
 
                 if !msg.entries.is_empty() {
                     let success: bool = if msg.term < self.current_term
-                    || msg.prev_log_index >= self.logs.len()
-                    || msg.entries[msg.prev_log_index].term != self.logs[msg.prev_log_index].term
+                        || msg.prev_log_index >= self.logs.len()
+                        || msg.entries[msg.prev_log_index].term
+                            != self.logs[msg.prev_log_index].term
                     {
                         false
                     } else {
@@ -251,9 +250,11 @@ impl Node {
             Role::Follower => {
                 self.timer.reset_elect();
                 if msg.term >= self.current_term
-                && (self.candidated_addr.is_none() || self.candidated_addr.unwrap() == msg.candidated_addr)
-                && msg.last_log_term >= self.logs.last().unwrap().term
-                && msg.last_log_index >= self.logs.last().unwrap().index {
+                    && (self.candidated_addr.is_none()
+                        || self.candidated_addr.unwrap() == msg.candidated_addr)
+                    && msg.last_log_term >= self.logs.last().unwrap().term
+                    && msg.last_log_index >= self.logs.last().unwrap().index
+                {
                     self.current_term = msg.term;
                     vote_for!(&self, true, msg.candidated_addr);
                     self.candidated_addr = Some(msg.candidated_addr);
@@ -272,7 +273,7 @@ impl Node {
             Role::Leader => {}
         }
     }
-    
+
     fn handle_request_vote_response(&mut self, msg: RequestVoteResponse) {
         match self.role {
             Role::Follower => {}
@@ -283,10 +284,18 @@ impl Node {
                     self.timer.run_elect();
                 } else if msg.vote_granted {
                     self.votes += 1;
-                    info!("{} gets {} votes",self.rpc.cs.socket_addr.port(), self.votes);
+                    info!(
+                        "{} gets {} votes",
+                        self.rpc.cs.socket_addr.port(),
+                        self.votes
+                    );
                     if self.votes >= self.cluster_info.majority_number {
                         self.change_role_to(Role::Leader);
-                        info!("{} is leader in term {}", self.rpc.cs.socket_addr.port(), self.current_term);
+                        info!(
+                            "{} is leader in term {}",
+                            self.rpc.cs.socket_addr.port(),
+                            self.current_term
+                        );
                         self.timer.run_heartbeat();
                         append_entries_request!(&self, Vec::<Entry>::new()); // heartbeat
                     }
@@ -302,7 +311,11 @@ impl Node {
                 self.change_role_to(Role::Candidate);
                 self.timer.reset_elect();
                 self.current_term += 1;
-                info!("{} is candidate in term {}", self.rpc.cs.socket_addr.port(), self.current_term);
+                info!(
+                    "{} is candidate in term {}",
+                    self.rpc.cs.socket_addr.port(),
+                    self.current_term
+                );
                 self.candidated_addr = Some(self.rpc.cs.socket_addr);
                 self.votes = 1;
                 request_vote!(&self);
@@ -315,7 +328,7 @@ impl Node {
             }
         }
     }
-    
+
     fn change_role_to(&mut self, rolename: Role) {
         self.role = rolename;
     }
