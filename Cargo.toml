@@ -1,9 +1,15 @@
 [package]
-name = "Ruft"
+name = "ruft"
 version = "0.1.0"
-authors = ["S1T <ghzpotato@gmail.com>"]
+authors = ["S1T"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+clap = "2.33"
+crossbeam-channel = "0.4"
+log = "0.4"
+rand = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+simple_logger = "1.5"
