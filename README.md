@@ -1,10 +1,16 @@
-# Ruft
+<h1 align="center">Ruft 🦀️</h1>
+<p>
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-blue.svg?cacheSeconds=2592000" />
+  <a href="https://github.com/S-1-T/Ruft/blob/master/LICENSE" target="_blank">
+    <img alt="License: MIT License" src="https://img.shields.io/badge/License-MIT License-yellow.svg" />
+  </a>
+</p>
 
-A rust implementation of raft distributed consensus algorithm.
+> A rust implementation of raft distributed consensus algorithm.
 
 ## Usage
 
-```shell
+```sh
 USAGE:
     ruft [OPTIONS] --id <ID>
     or
@@ -21,8 +27,18 @@ OPTIONS:
         --port <PORT>    Sets the node's port
 ```
 
-## LICENSE
+## Author
 
-Copyright © 2020 by S-1-T
+* Github: [@S-1-T](https://github.com/S-1-T)
 
-Under [MIT License](https://github.com/S-1-T/Ruft/blob/master/LICENSE)
+## 🤝 Contributing
+
+Contributions, issues and feature requests are welcome!<br />Feel free to check [issues page](https://github.com/S-1-T/Ruft/issues). You can also take a consideration on [contributing](https://github.com/S-1-T/Ruft/pulls).
+
+## Show your support
+
+Give a ⭐️ if this project helped you!
+
+## 📝 License
+
+This project is [MIT License](https://github.com/S-1-T/Ruft/blob/master/LICENSE) licensed.
